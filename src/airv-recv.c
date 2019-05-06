@@ -82,11 +82,23 @@ int main(int argc, char* argv[])
 
     fprintf(stderr, "  Start emulation.\n");
 
+    struct air_event
+    {
+        __u16 type;
+        __u16 code;
+        __s32 value;
+    };
+
     while (1) {
-        struct input_event event;
-        if (read(0, &event, sizeof(event)) < sizeof(event))
-            continue;
-            //err(1, "Failed to read input event from stdin");
+        struct air_event air_ev = {0};
+        if (read(0, &air_ev, sizeof(air_ev)) < sizeof(air_ev))
+            err(1, "Failed to read input event from stdin");
+
+        struct input_event event = {0};
+        event.type = air_ev.type;
+        event.code = air_ev.code;
+        event.value = air_ev.value;
+
         fprintf(stderr, "  EVENT %04x %04x %08x\n", event.type, event.code, event.value);
         if (write(device, &event, sizeof(event)) < sizeof(event))
             err(1, "Failed to write input event to %s", device_path);

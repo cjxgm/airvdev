@@ -41,11 +41,24 @@ int main(int argc, char* argv[])
     if (write(1, &meta, sizeof(meta)) < sizeof(meta))
         err(1, "Failed to write device metadata to stdout");
 
+    struct air_event
+    {
+        __u16 type;
+        __u16 code;
+        __s32 value;
+    };
+
     while (1) {
-        struct input_event event;
+        struct input_event event = {0};
         if (read(device, &event, sizeof(event)) < sizeof(event))
             err(1, "Failed to read input event from %s", device_path);
-        if (write(1, &event, sizeof(event)) < sizeof(event))
+
+        struct air_event air_ev = {0};
+        air_ev.type = event.type;
+        air_ev.code = event.code;
+        air_ev.value = event.value;
+
+        if (write(1, &air_ev, sizeof(air_ev)) < sizeof(air_ev))
             err(1, "Failed to write input event to stdout");
     }
 }
