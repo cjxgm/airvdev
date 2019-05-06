@@ -95,11 +95,14 @@ int main(int argc, char* argv[])
             if (!test_bit(i, meta.bits[EV_ABS]))
                 continue;
 
-            fprintf(stderr, "  Enable %02x abs axis\n", i);
+            fprintf(stderr, "  Enable %02x abs axis  %d -> %d [%d]\n", i
+                    , meta.absinfos[i].minimum, meta.absinfos[i].maximum, meta.absinfos[i].resolution);
 
             struct uinput_abs_setup abs_setup = {0};
             abs_setup.code = i;
             abs_setup.absinfo = meta.absinfos[i];
+            if (abs_setup.absinfo.resolution == 0)
+                abs_setup.absinfo.resolution = 300;
 
             if (ioctl(device, UI_ABS_SETUP, &abs_setup) < 0)
                 err(1, "Failed to setup abs %02x", i);
