@@ -6,6 +6,11 @@
 #include <stdio.h>
 #include <string.h>
 
+static int test_bit(int bit, __u32 arr[])
+{
+    return ((arr[bit/32] >> (bit%32)) & 1);
+}
+
 int main(int argc, char* argv[])
 {
     char const* device_path = "/dev/uinput";
@@ -22,7 +27,7 @@ int main(int argc, char* argv[])
     {
         struct input_id id;
         char name[80];
-        __u32 evbits;
+        __u32 bits[0x20+1][0x300/32];
         struct input_absinfo absinfos[0x40];
     };
 
@@ -39,14 +44,16 @@ int main(int argc, char* argv[])
         , meta.id.product
         , meta.id.version
     );
-    fprintf(stderr, "  EV    ");
-    for (int i=0; i<0x20; i++)
-        fputc(((meta.evbits & ((__u32)1 << (0x20 - 1 - i))) ? '+' : '.'), stderr);
-    fputc('\n', stderr);
-    fprintf(stderr, "  ABS   ");
-    for (int i=0; i<0x40; i++)
-        fputc((meta.absinfos[i].minimum != meta.absinfos[i].maximum ? '+' : '.'), stderr);
-    fputc('\n', stderr);
+    for (int i=0; i<0x20; i++) {
+        if (!test_bit(i, meta.bits[0x20]))
+            continue;
+
+        fprintf(stderr, "  EV%02x ", i);
+        for (int k=0; k<0x300; k++)
+            if (test_bit(k, meta.bits[i]))
+                fprintf(stderr, " %03x", k);
+        fputc('\n', stderr);
+    }
 
     struct uinput_setup ui_setup = {0};
     ui_setup.id = meta.id;
@@ -55,15 +62,24 @@ int main(int argc, char* argv[])
         err(1, "Failed to setup device");
 
     for (int i=0; i<0x20; i++)
-        if (meta.evbits & ((__u32)1 << (0x20 - 1 - i))) {
+        if (test_bit(i, meta.bits[0x20])) {
             fprintf(stderr, "  Enable %02x bit\n", i);
             if (ioctl(device, UI_SET_EVBIT, i) < 0)
                 err(1, "Failed to set evbit %02x", i);
+
+            if (0x00 < i && i < 0x05) {
+                for (int k=0; k<0x300; k++)
+                    if (test_bit(k, meta.bits[i])) {
+                        fprintf(stderr, "  Enable %02x bit %03x\n", i, k);
+                        if (ioctl(device, UI_SET_EVBIT + i, k) < 0)
+                            err(1, "Failed to set %02x bit %03x", i, k);
+                    }
+            }
         }
 
-    if (meta.evbits & ((__u32)1 << (0x20 - 1 - EV_ABS))) {
+    if (test_bit(EV_ABS, meta.bits[0x20])) {
         for (int i=0; i<0x40; i++) {
-            if (meta.absinfos[i].minimum == meta.absinfos[i].maximum)
+            if (!test_bit(i, meta.bits[EV_ABS]))
                 continue;
 
             fprintf(stderr, "  Enable %02x abs axis\n", i);

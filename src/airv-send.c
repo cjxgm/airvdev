@@ -4,6 +4,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+static int test_bit(int bit, __u32 arr[])
+{
+    return ((arr[bit/32] >> (bit%32)) & 1);
+}
+
 int main(int argc, char* argv[])
 {
     if (argc != 2)
@@ -19,7 +24,7 @@ int main(int argc, char* argv[])
     {
         struct input_id id;
         char name[80];
-        __u32 evbits;
+        __u32 bits[0x20+1][0x300/32];
         struct input_absinfo absinfos[0x40];
     };
 
@@ -28,14 +33,19 @@ int main(int argc, char* argv[])
         err(1, "Failed to get device ID of %s", device_path);
     if (ioctl(device, EVIOCGNAME(sizeof(meta.name)-1), meta.name) < 0)
         err(1, "Failed to get device name of %s", device_path);
+    if (ioctl(device, EVIOCGBIT(0, sizeof(meta.bits[0])), &meta.bits[0x20]) < 0)
+        err(1, "Failed to get device event bits of %s", device_path);
     for (int i=0; i<0x20; i++) {
-        char bit = 0;
-        ioctl(device, EVIOCGBIT(i, sizeof(bit)), &bit); // when it errors out, it means no such bit.
-        meta.evbits <<= 1;
-        meta.evbits |= bit;
+        if (test_bit(i, meta.bits[0x20]))
+            if (ioctl(device, EVIOCGBIT(i, 0x300), &meta.bits[i]) < 0)
+                err(1, "Failed to get device event %02x bits of %s", i, device_path);
     }
-    for (int i=0; i<0x40; i++) {
-        ioctl(device, EVIOCGABS(i), &meta.absinfos[i]); // Just ignore the errors.
+    if (test_bit(EV_ABS, meta.bits[0x20])) {
+        for (int i=0; i<0x40; i++) {
+            if (test_bit(i, meta.bits[EV_ABS]))
+                if (ioctl(device, EVIOCGABS(i), &meta.absinfos[i]) < 0)
+                    err(1, "Failed to get abs info %02x of %s", i, device_path);
+        }
     }
 
     if (write(1, &meta, sizeof(meta)) < sizeof(meta))
