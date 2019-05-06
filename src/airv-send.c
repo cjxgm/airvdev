@@ -24,6 +24,7 @@ int main(int argc, char* argv[])
     {
         struct input_id id;
         char name[80];
+        __u32 props[1];
         __u32 bits[0x20+1][0x300/32];
         struct input_absinfo absinfos[0x40];
     };
@@ -33,11 +34,13 @@ int main(int argc, char* argv[])
         err(1, "Failed to get device ID of %s", device_path);
     if (ioctl(device, EVIOCGNAME(sizeof(meta.name)-1), meta.name) < 0)
         err(1, "Failed to get device name of %s", device_path);
-    if (ioctl(device, EVIOCGBIT(0, sizeof(meta.bits[0])), &meta.bits[0x20]) < 0)
+    if (ioctl(device, EVIOCGPROP(0x20), meta.props) < 0)
+        err(1, "Failed to get device properties of %s", device_path);
+    if (ioctl(device, EVIOCGBIT(0, sizeof(meta.bits[0])), meta.bits[0x20]) < 0)
         err(1, "Failed to get device event bits of %s", device_path);
     for (int i=0; i<0x20; i++) {
         if (test_bit(i, meta.bits[0x20]))
-            if (ioctl(device, EVIOCGBIT(i, 0x300), &meta.bits[i]) < 0)
+            if (ioctl(device, EVIOCGBIT(i, 0x300), meta.bits[i]) < 0)
                 err(1, "Failed to get device event %02x bits of %s", i, device_path);
     }
     if (test_bit(EV_ABS, meta.bits[0x20])) {

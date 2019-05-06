@@ -27,6 +27,7 @@ int main(int argc, char* argv[])
     {
         struct input_id id;
         char name[80];
+        __u32 props[1];
         __u32 bits[0x20+1][0x300/32];
         struct input_absinfo absinfos[0x40];
     };
@@ -44,6 +45,13 @@ int main(int argc, char* argv[])
         , meta.id.product
         , meta.id.version
     );
+
+    fprintf(stderr, "  PROP ");
+    for (int i=0; i<0x20; i++)
+        if (test_bit(i, meta.props))
+            fprintf(stderr, " %02x", i);
+    fputc('\n', stderr);
+
     for (int i=0; i<0x20; i++) {
         if (!test_bit(i, meta.bits[0x20]))
             continue;
@@ -60,6 +68,11 @@ int main(int argc, char* argv[])
     memcpy(ui_setup.name, meta.name, sizeof(ui_setup.name) - 1);
     if (ioctl(device, UI_DEV_SETUP, &ui_setup) < 0)
         err(1, "Failed to setup device");
+
+    for (int i=0; i<0x20; i++)
+        if (test_bit(i, meta.props))
+            if (ioctl(device, UI_SET_PROPBIT, i) < 0)
+                err(1, "Failed to set property %02x", i);
 
     for (int i=0; i<0x20; i++)
         if (test_bit(i, meta.bits[0x20])) {
