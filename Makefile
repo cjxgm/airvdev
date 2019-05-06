@@ -1,5 +1,5 @@
 .PHONY: all clean
-all: build/airv-send
+all: build/airv-send build/airv-recv
 clean:
 	rm -rf build/
 
