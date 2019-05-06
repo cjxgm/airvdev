@@ -20,7 +20,6 @@ int main(int argc, char* argv[])
         struct input_id id;
         char name[80];
         __u32 evbits;
-        __u64 absbits;
         struct input_absinfo absinfos[0x40];
     };
 
@@ -36,8 +35,7 @@ int main(int argc, char* argv[])
         meta.evbits |= bit;
     }
     for (int i=0; i<0x40; i++) {
-        meta.absbits <<= 1;
-        meta.absbits |= (ioctl(device, EVIOCGABS(i), &meta.absinfos[i]) >= 0);
+        ioctl(device, EVIOCGABS(i), &meta.absinfos[i]); // Just ignore the errors.
     }
 
     if (write(1, &meta, sizeof(meta)) < sizeof(meta))
