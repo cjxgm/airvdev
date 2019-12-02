@@ -11,6 +11,10 @@ static int test_bit(int bit, __u32 arr[])
     return ((arr[bit/32] >> (bit%32)) & 1);
 }
 
+#define AIRV_FIX_ASPECT_RATIO 1                 // 0: don't fix; 1: do fix.
+#define AIRV_FIX_ASPECT_RATIO_ABS_CODE 1        // which axis to fix.
+#define AIRV_FIX_ASPECT_RATIO_ABS_SCALE 4/3     // scale the axis by the SCALE.
+
 int main(int argc, char* argv[])
 {
     char const* device_path = "/dev/uinput";
@@ -90,6 +94,10 @@ int main(int argc, char* argv[])
             }
         }
 
+    #if AIRV_FIX_ASPECT_RATIO
+    int abs_fix_max = 1;
+    #endif
+
     if (test_bit(EV_ABS, meta.bits[0x20])) {
         for (int i=0; i<0x40; i++) {
             if (!test_bit(i, meta.bits[EV_ABS]))
@@ -106,6 +114,11 @@ int main(int argc, char* argv[])
 
             if (ioctl(device, UI_ABS_SETUP, &abs_setup) < 0)
                 err(1, "Failed to setup abs %02x", i);
+
+            #if AIRV_FIX_ASPECT_RATIO
+            if (i == AIRV_FIX_ASPECT_RATIO_ABS_CODE)
+                abs_fix_max = meta.absinfos[i].maximum;
+            #endif
         }
     }
 
@@ -130,6 +143,14 @@ int main(int argc, char* argv[])
         event.type = air_ev.type;
         event.code = air_ev.code;
         event.value = air_ev.value;
+
+        #if AIRV_FIX_ASPECT_RATIO
+        if (event.type == EV_ABS && event.code == AIRV_FIX_ASPECT_RATIO_ABS_CODE) {
+            event.value = event.value * AIRV_FIX_ASPECT_RATIO_ABS_SCALE;
+            if (event.value > abs_fix_max)
+                event.value = abs_fix_max;
+        }
+        #endif
 
         fprintf(stderr, "  EVENT %04x %04x %08x\n", event.type, event.code, event.value);
         if (write(device, &event, sizeof(event)) < sizeof(event))
